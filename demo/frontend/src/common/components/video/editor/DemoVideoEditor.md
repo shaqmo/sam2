@@ -14,23 +14,261 @@
 - **Backend Communication**: WebSocket for real-time updates
 
 ### Performance Optimizations
-1. **Frame Processing**
-   - Offloaded to WebWorker thread
-   - Frame buffering for smooth playback
-   - Asynchronous frame decoding
-   - Memory-efficient frame storage
 
-2. **Rendering Pipeline**
-   - Multi-layered canvas architecture
-   - Optimistic UI updates for point interactions
-   - RAF (RequestAnimationFrame) synchronized updates
-   - Layer compositing for efficient redraws
+1. **Frame Processing Architecture**
+   ```typescript
+   interface FrameProcessor {
+     bufferSize: number;
+     maxMemoryUsage: number;
+     frameCache: Map<number, VideoFrame>;
+     processingQueue: PriorityQueue<FrameTask>;
+     
+     processFrame(frame: VideoFrame): Promise<ProcessedFrame>;
+     releaseMemory(threshold: number): void;
+     getFrameStats(): FrameProcessingStats;
+   }
+   ```
+   - WebWorker Implementation:
+     ```typescript
+     class VideoProcessingWorker {
+       private frameBuffer: CircularBuffer<VideoFrame>;
+       private decoder: VideoDecoder;
+       private memoryManager: MemoryManager;
+       
+       constructor(config: WorkerConfig) {
+         this.frameBuffer = new CircularBuffer(config.bufferSize);
+         this.decoder = new VideoDecoder({
+           output: this.handleFrame.bind(this),
+           error: this.handleError.bind(this)
+         });
+       }
+     }
+     ```
+   - Memory Management:
+     - LRU cache for processed frames
+     - Automatic buffer size adjustment
+     - Memory pressure monitoring
+     - Garbage collection optimization
 
-3. **State Management**
-   - Atomic updates to prevent unnecessary rerenders
-   - Memoized computations for heavy operations
-   - Lazy loading of video segments
-   - Efficient memory cleanup
+2. **Advanced Rendering Pipeline**
+   ```typescript
+   interface RenderingPipeline {
+     layers: Map<string, CanvasLayer>;
+     compositer: LayerCompositer;
+     renderLoop: RAF;
+     
+     addLayer(layer: CanvasLayer): void;
+     updateLayer(id: string, updates: LayerUpdates): void;
+     optimizeRendering(): void;
+   }
+   ```
+   - Layer Management:
+     ```typescript
+     class LayerCompositer {
+       private layers: CanvasLayer[];
+       private dirtyRegions: Set<Region>;
+       
+       compose(timestamp: DOMHighResTimeStamp): void {
+         this.updateDirtyRegions();
+         this.renderLayers();
+         this.optimizeNextFrame();
+       }
+     }
+     ```
+   - Performance Techniques:
+     - Dirty region tracking
+     - Layer culling for offscreen content
+     - GPU acceleration when available
+     - Adaptive resolution scaling
+
+3. **State Management Optimizations**
+   ```typescript
+   interface StateOptimizer {
+     memoizationCache: WeakMap<any, any>;
+     computationQueue: PriorityQueue<StateComputation>;
+     
+     shouldUpdate(prev: State, next: State): boolean;
+     batchUpdates(updates: StateUpdate[]): void;
+     optimizeMemory(): void;
+   }
+   ```
+   - Memory Optimization:
+     ```typescript
+     class MemoryManager {
+       private memoryUsage: number;
+       private gcThreshold: number;
+       
+       trackMemory(allocation: number): void {
+         this.memoryUsage += allocation;
+         if (this.memoryUsage > this.gcThreshold) {
+           this.triggerCleanup();
+         }
+       }
+     }
+     ```
+   - Computation Optimization:
+     - Incremental state updates
+     - Computation result caching
+     - Background processing for heavy computations
+     - Smart dependency tracking
+
+4. **Video Processing Optimization**
+   ```typescript
+   interface VideoOptimizer {
+     codecPreferences: string[];
+     qualityLevels: QualityLevel[];
+     
+     optimizeForDevice(capabilities: MediaCapabilities): void;
+     adjustQualityDynamically(performance: PerformanceMetrics): void;
+   }
+   ```
+   - Codec Selection:
+     - Hardware acceleration detection
+     - Codec switching based on performance
+     - Quality/performance tradeoff management
+   - Streaming Optimizations:
+     - Adaptive bitrate selection
+     - Frame dropping strategies
+     - Buffer management policies
+
+## Canvas Rendering Architecture
+
+### Layer System
+```typescript
+interface CanvasLayer {
+  id: string;
+  zIndex: number;
+  visible: boolean;
+  opacity: number;
+  blendMode: GlobalCompositeOperation;
+  
+  render(context: CanvasRenderingContext2D): void;
+  update(props: LayerProps): void;
+  getBounds(): DOMRect;
+}
+
+class VideoLayer implements CanvasLayer {
+  private videoElement: HTMLVideoElement;
+  private textureCache: WebGLTexture | null;
+  private shader: WebGLProgram;
+  
+  constructor(config: VideoLayerConfig) {
+    this.initializeWebGL();
+    this.setupShaders();
+    this.createTexture();
+  }
+  
+  private initializeWebGL(): void {
+    // WebGL context initialization with performance options
+    const contextAttributes: WebGLContextAttributes = {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      desynchronized: true,
+      powerPreference: 'high-performance'
+    };
+  }
+}
+```
+
+### Rendering Optimizations
+
+#### 1. Frame Scheduling
+```typescript
+class FrameScheduler {
+  private frameQueue: Frame[];
+  private lastFrameTime: number;
+  private frameInterval: number;
+  
+  scheduleFrame(frame: Frame): void {
+    const nextFrameTime = this.calculateNextFrameTime();
+    this.frameQueue.push({
+      ...frame,
+      scheduledTime: nextFrameTime
+    });
+  }
+  
+  private calculateNextFrameTime(): number {
+    return Math.max(
+      this.lastFrameTime + this.frameInterval,
+      performance.now()
+    );
+  }
+}
+```
+
+#### 2. GPU Acceleration
+```typescript
+interface GPUOptimizer {
+  capabilities: WebGLCapabilities;
+  extensions: Set<string>;
+  
+  createOptimizedBuffer(data: BufferSource): WebGLBuffer;
+  optimizeTextureUpload(texture: WebGLTexture): void;
+  handleContextLoss(): void;
+}
+
+class WebGLOptimizer implements GPUOptimizer {
+  private vertexArrayObjects: Map<string, WebGLVertexArrayObject>;
+  private shaderCache: Map<string, WebGLProgram>;
+  
+  optimizeDrawCalls(renderQueue: RenderCommand[]): void {
+    this.batchSimilarDrawCalls(renderQueue);
+    this.minimizeStateChanges(renderQueue);
+    this.updateUniformsEfficiently(renderQueue);
+  }
+}
+```
+
+#### 3. Memory Management
+```typescript
+class TextureManager {
+  private texturePool: ObjectPool<WebGLTexture>;
+  private memoryBudget: number;
+  
+  allocateTexture(width: number, height: number): WebGLTexture {
+    this.ensureMemoryAvailable(width * height * 4);
+    return this.texturePool.acquire();
+  }
+  
+  private ensureMemoryAvailable(requiredBytes: number): void {
+    if (this.memoryUsage + requiredBytes > this.memoryBudget) {
+      this.releaseUnusedTextures();
+    }
+  }
+}
+```
+
+### Performance Monitoring
+
+```typescript
+interface PerformanceMetrics {
+  fps: number;
+  frameTime: number;
+  gpuMemoryUsage: number;
+  drawCalls: number;
+  textureUploads: number;
+}
+
+class PerformanceMonitor {
+  private metrics: PerformanceMetrics;
+  private thresholds: PerformanceThresholds;
+  
+  update(timestamp: DOMHighResTimeStamp): void {
+    this.updateMetrics(timestamp);
+    this.checkThresholds();
+    this.adjustQuality();
+  }
+  
+  private adjustQuality(): void {
+    if (this.metrics.fps < this.thresholds.minFps) {
+      this.reduceQuality();
+    } else if (this.metrics.fps > this.thresholds.targetFps) {
+      this.increaseQuality();
+    }
+  }
+}
+```
 
 ## Component Structure
 
@@ -127,17 +365,106 @@ graph TD
    - Color assignment for visualization
    - Metadata storage for additional attributes
 
-### WebWorker Communication
+### WebWorker Communication Architecture
+
+#### Message Protocol
 ```typescript
-interface WorkerMessage {
-  type: 'FRAME_UPDATE' | 'TRACKLET_UPDATE' | 'ERROR';
-  payload: unknown;
+interface WorkerMessage<T = unknown> {
+  type: WorkerMessageType;
+  payload: T;
   timestamp: number;
+  messageId: string;
+  priority: MessagePriority;
+  metadata: MessageMetadata;
+}
+
+type WorkerMessageType = 
+  | 'FRAME_UPDATE' 
+  | 'TRACKLET_UPDATE' 
+  | 'ERROR' 
+  | 'MEMORY_PRESSURE' 
+  | 'PERFORMANCE_METRICS'
+  | 'CODEC_SWITCH'
+  | 'QUALITY_ADJUSTMENT';
+
+interface MessageMetadata {
+  processingTime?: number;
+  memoryUsage?: number;
+  priority: 'high' | 'normal' | 'low';
+  retryCount: number;
 }
 ```
-- Structured message passing
-- Error handling with recovery
-- Buffered updates for performance
+
+#### Communication Patterns
+```typescript
+class WorkerCommunicationManager {
+  private messageQueue: PriorityQueue<WorkerMessage>;
+  private responseHandlers: Map<string, ResponseHandler>;
+  private retryPolicy: RetryPolicy;
+  
+  constructor(config: WorkerConfig) {
+    this.messageQueue = new PriorityQueue();
+    this.setupMessageChannels();
+    this.initializeErrorHandling();
+  }
+
+  private setupMessageChannels(): void {
+    this.channels = {
+      highPriority: new MessageChannel(),
+      normal: new MessageChannel(),
+      lowPriority: new MessageChannel()
+    };
+  }
+
+  async sendMessage<T>(message: WorkerMessage<T>): Promise<WorkerResponse> {
+    const handler = this.createResponseHandler(message);
+    await this.enqueueMessage(message);
+    return handler.waitForResponse();
+  }
+}
+```
+
+#### Performance Optimizations
+1. **Message Prioritization**
+   - Critical frame updates get priority
+   - Background tasks are deferred
+   - Dynamic queue management
+
+2. **Buffer Management**
+   ```typescript
+   class MessageBuffer {
+     private ringBuffer: CircularBuffer<WorkerMessage>;
+     private flushThreshold: number;
+     
+     enqueue(message: WorkerMessage): void {
+       this.ringBuffer.push(message);
+       this.checkFlushThreshold();
+     }
+     
+     private checkFlushThreshold(): void {
+       if (this.ringBuffer.size >= this.flushThreshold) {
+         this.flushMessages();
+       }
+     }
+   }
+   ```
+
+3. **Error Recovery**
+   ```typescript
+   class ErrorRecoverySystem {
+     private errorMap: Map<string, ErrorHandler>;
+     private recoveryStrategies: RecoveryStrategy[];
+     
+     handleError(error: WorkerError): void {
+       const strategy = this.selectRecoveryStrategy(error);
+       strategy.execute();
+     }
+     
+     private selectRecoveryStrategy(error: WorkerError): RecoveryStrategy {
+       return this.recoveryStrategies.find(s => s.canHandle(error));
+     }
+   }
+   ```
 
 ## Props
 
