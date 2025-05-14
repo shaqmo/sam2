@@ -270,6 +270,158 @@ class PerformanceMonitor {
 }
 ```
 
+## WebGL Advanced Rendering Pipeline
+
+### Shader Management
+```typescript
+interface ShaderSystem {
+  shaderCache: Map<string, WebGLProgram>;
+  uniformLocations: Map<string, WebGLUniformLocation>;
+  vertexArrayObjects: Map<string, WebGLVertexArrayObject>;
+  
+  compileShader(source: string, type: number): WebGLShader;
+  linkProgram(vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram;
+  setupVAO(program: WebGLProgram, attributes: AttributeConfig[]): WebGLVertexArrayObject;
+}
+
+class ShaderManager implements ShaderSystem {
+  private static readonly VERTEX_SHADER = `
+    #version 300 es
+    precision highp float;
+    
+    layout(location = 0) in vec2 a_position;
+    layout(location = 1) in vec2 a_texCoord;
+    
+    uniform mat4 u_modelViewMatrix;
+    uniform mat4 u_projectionMatrix;
+    
+    out vec2 v_texCoord;
+    
+    void main() {
+      gl_Position = u_projectionMatrix * u_modelViewMatrix * vec4(a_position, 0.0, 1.0);
+      v_texCoord = a_texCoord;
+    }
+  `;
+  
+  private static readonly FRAGMENT_SHADER = `
+    #version 300 es
+    precision highp float;
+    
+    uniform sampler2D u_mainTexture;
+    uniform sampler2D u_maskTexture;
+    uniform vec4 u_overlayColor;
+    uniform float u_opacity;
+    
+    in vec2 v_texCoord;
+    out vec4 fragColor;
+    
+    void main() {
+      vec4 videoColor = texture(u_mainTexture, v_texCoord);
+      vec4 maskColor = texture(u_maskTexture, v_texCoord);
+      
+      // Apply mask blending with overlay color
+      float maskAlpha = maskColor.a * u_opacity;
+      vec3 blendedColor = mix(videoColor.rgb, u_overlayColor.rgb, maskAlpha);
+      
+      fragColor = vec4(blendedColor, videoColor.a);
+    }
+  `;
+  
+  async setupShaders(): Promise<void> {
+    const vertexShader = await this.compileShader(ShaderManager.VERTEX_SHADER, gl.VERTEX_SHADER);
+    const fragmentShader = await this.compileShader(ShaderManager.FRAGMENT_SHADER, gl.FRAGMENT_SHADER);
+    const program = await this.linkProgram(vertexShader, fragmentShader);
+    
+    this.setupUniforms(program);
+    this.createVAO(program);
+  }
+}
+```
+
+### Advanced GPU Management
+```typescript
+interface GPUResourceManager {
+  texturePool: ObjectPool<WebGLTexture>;
+  bufferPool: ObjectPool<WebGLBuffer>;
+  frameBufferPool: ObjectPool<WebGLFramebuffer>;
+  
+  allocateResources(requirements: ResourceRequirements): GPUResources;
+  optimizeMemoryUsage(): void;
+  handleContextLoss(): Promise<void>;
+}
+
+class WebGLResourceManager implements GPUResourceManager {
+  private memoryTracker: GPUMemoryTracker;
+  private contextRestoreHandler: ContextRestoreHandler;
+  
+  constructor(gl: WebGL2RenderingContext) {
+    this.setupMemoryTracking();
+    this.initializePools();
+    this.setupContextLossHandling();
+  }
+  
+  private setupMemoryTracking(): void {
+    this.memoryTracker = new GPUMemoryTracker({
+      textureLimit: 512 * 1024 * 1024, // 512MB for textures
+      bufferLimit: 128 * 1024 * 1024,  // 128MB for buffers
+      checkInterval: 1000 // Check every second
+    });
+  }
+  
+  private initializePools(): void {
+    this.texturePool = new ObjectPool({
+      create: () => this.gl.createTexture(),
+      reset: (texture) => this.resetTexture(texture),
+      destroy: (texture) => this.gl.deleteTexture(texture)
+    });
+  }
+}
+```
+
+### Real-time Performance Profiling
+```typescript
+interface PerformanceProfile {
+  fps: number;
+  frameTime: number;
+  gpuTime: number;
+  cpuTime: number;
+  memoryUsage: {
+    textures: number;
+    buffers: number;
+    total: number;
+  };
+  metrics: Map<string, MetricData>;
+}
+
+class PerformanceProfiler {
+  private metricsBuffer: CircularBuffer<PerformanceProfile>;
+  private gpuTimer: WebGLTimerQueryEXT;
+  private profilerWorker: Worker;
+  
+  constructor(config: ProfilerConfig) {
+    this.initializeProfiler(config);
+    this.setupGPUTimer();
+    this.startProfilingWorker();
+  }
+  
+  private setupGPUTimer(): void {
+    const ext = this.gl.getExtension('EXT_disjoint_timer_query_webgl2');
+    this.gpuTimer = ext?.createQueryEXT();
+  }
+  
+  async measureGPUTime(renderCallback: () => void): Promise<number> {
+    if (!this.gpuTimer) return 0;
+    
+    this.gl.beginQuery(EXT_disjoint_timer_query_webgl2.TIME_ELAPSED_EXT, this.gpuTimer);
+    renderCallback();
+    this.gl.endQuery(EXT_disjoint_timer_query_webgl2.TIME_ELAPSED_EXT);
+    
+    await this.waitForQueryResult();
+    return this.gl.getQueryParameter(this.gpuTimer, gl.QUERY_RESULT);
+  }
+}
+```
+
 ## Component Structure
 
 ```mermaid
