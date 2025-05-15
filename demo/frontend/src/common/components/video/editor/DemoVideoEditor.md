@@ -73,174 +73,79 @@
 ### Performance Optimizations
 
 1. **Frame Processing Architecture**
-   /**
-    * Core interface for frame processing
-    * Handles video frame buffering, processing, and memory management
-    * Implements efficient caching and memory release strategies
-    */
    ```typescript
    interface FrameProcessor {
+     // Maximum number of frames to keep in memory
      bufferSize: number;
-     maxMemoryUsage: number;
-     frameCache: Map<number, VideoFrame>;
-     processingQueue: PriorityQueue<FrameTask>;
-     
-     processFrame(frame: VideoFrame): Promise<ProcessedFrame>;
-     releaseMemory(threshold: number): void;
+     // Get current frame processing statistics
      getFrameStats(): FrameProcessingStats;
    }
-   ```
-   - WebWorker Implementation:
-     /**
-      * Worker implementation for video processing
-      * Manages asynchronous video frame processing in a separate thread
-      * Handles frame buffering and decoding with memory optimization
-      */
-     ```typescript
-     class VideoProcessingWorker {
-       private frameBuffer: CircularBuffer<VideoFrame>;
-       private decoder: VideoDecoder;
-       private memoryManager: MemoryManager;
-       
-       constructor(config: WorkerConfig) {
-         this.frameBuffer = new CircularBuffer(config.bufferSize);
-         this.decoder = new VideoDecoder({
-           output: this.handleFrame.bind(this),
-           error: this.handleError.bind(this)
-         });
-       }
+
+   // Worker implementation for parallel frame processing
+   class VideoProcessingWorker {
+     // Pre-allocate memory for frame data
+     private frameBuffer: SharedArrayBuffer;
+     // Track frame processing metrics
+     private metrics: FrameProcessingMetrics;
+
+     constructor(config: WorkerConfig) {
+       // Initialize frame processing pipeline
+       this.setupFrameProcessing();
      }
-     ```
-   - Memory Management:
-     - LRU cache for processed frames
-     - Automatic buffer size adjustment
-     - Memory pressure monitoring
-     - Garbage collection optimization
+   }
+   ```
 
 2. **Advanced Rendering Pipeline**
-   /**
-    * Advanced rendering pipeline interface
-    * Manages multiple canvas layers and compositing operations
-    * Handles layer updates and rendering optimization
-    */
    ```typescript
    interface RenderingPipeline {
+     // Map of active canvas layers by ID
      layers: Map<string, CanvasLayer>;
-     compositer: LayerCompositer;
-     renderLoop: RAF;
-     
-     addLayer(layer: CanvasLayer): void;
-     updateLayer(id: string, updates: LayerUpdates): void;
+     // Optimize rendering performance
      optimizeRendering(): void;
    }
    ```
-   - Layer Management:
-     /**
-      * Layer compositing system
-      * Manages efficient rendering of multiple canvas layers
-      * Implements dirty region tracking and layer optimization
-      */
-     ```typescript
-     class LayerCompositer {
-       private layers: CanvasLayer[];
-       private dirtyRegions: Set<Region>;
-       
-       compose(timestamp: DOMHighResTimeStamp): void {
-         this.updateDirtyRegions();
-         this.renderLayers();
-         this.optimizeNextFrame();
-       }
-     }
-     ```
-   - Performance Techniques:
-     - Dirty region tracking
-     - Layer culling for offscreen content
-     - GPU acceleration when available
-     - Adaptive resolution scaling
 
 3. **State Management Optimizations**
-   /**
-    * State optimization interface
-    * Handles efficient state updates and memory management
-    * Implements caching and computation optimization strategies
-    */
    ```typescript
    interface StateOptimizer {
+     // Cache for memoized computation results
      memoizationCache: WeakMap<any, any>;
-     computationQueue: PriorityQueue<StateComputation>;
-     
-     shouldUpdate(prev: State, next: State): boolean;
-     batchUpdates(updates: StateUpdate[]): void;
+     // Optimize memory usage and state updates
      optimizeMemory(): void;
    }
    ```
-   - Memory Optimization:
-     /**
-      * Memory management system
-      * Handles garbage collection and memory allocation
-      * Monitors memory pressure and triggers cleanup
-      */
-     ```typescript
-     class MemoryManager {
-       private memoryUsage: number;
-       private gcThreshold: number;
-       
-       trackMemory(allocation: number): void {
-         this.memoryUsage += allocation;
-         if (this.memoryUsage > this.gcThreshold) {
-           this.triggerCleanup();
-         }
-       }
-     }
-     ```
-   - Computation Optimization:
-     - Incremental state updates
-     - Computation result caching
-     - Background processing for heavy computations
-     - Smart dependency tracking
 
 4. **Video Processing Optimization**
-   /**
-    * Video optimization interface
-    * Manages video codec selection and quality adjustments
-    * Implements adaptive streaming and performance optimization
-    */
    ```typescript
    interface VideoOptimizer {
+     // Preferred video codec order
      codecPreferences: string[];
-     qualityLevels: QualityLevel[];
-     
-     optimizeForDevice(capabilities: MediaCapabilities): void;
+     // Adjust video quality based on performance metrics
      adjustQualityDynamically(performance: PerformanceMetrics): void;
    }
    ```
-   - Codec Selection:
-     - Hardware acceleration detection
-     - Codec switching based on performance
-     - Quality/performance tradeoff management
-   - Streaming Optimizations:
-     - Adaptive bitrate selection
-     - Frame dropping strategies
-     - Buffer management policies
 
 ## Canvas Rendering Architecture
 
 ### Layer System
-/**
- * Canvas Layer interface
- * Defines the base structure for all rendering layers
- * Handles visibility, opacity, and blend modes
- */
 ```typescript
 interface CanvasLayer {
+  // Unique identifier for the layer
   id: string;
+  // Layer rendering order
   zIndex: number;
+  // Layer visibility state
   visible: boolean;
+  // Layer opacity (0-1)
   opacity: number;
+  // Layer blend mode for compositing
   blendMode: GlobalCompositeOperation;
   
+  // Render layer content to canvas context
   render(context: CanvasRenderingContext2D): void;
+  // Update layer properties
   update(props: LayerProps): void;
+  // Get layer bounding box
   getBounds(): DOMRect;
 }
 ```
@@ -250,25 +155,18 @@ interface CanvasLayer {
  * Manages texture caching and shader operations
  */
 class VideoLayer implements CanvasLayer {
+  // HTML video element for frame source
   private videoElement: HTMLVideoElement;
+  // WebGL texture cache for video frames
   private textureCache: WebGLTexture | null;
+  // Compiled shader program for rendering
   private shader: WebGLProgram;
   
   constructor(config: VideoLayerConfig) {
+    // Initialize WebGL context with performance options
     this.initializeWebGL();
-    this.setupShaders();
+    // Create and configure video texture
     this.createTexture();
-  }
-  
-  private initializeWebGL(): void {
-    // WebGL context initialization with performance options
-    const contextAttributes: WebGLContextAttributes = {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      desynchronized: true,
-      powerPreference: 'high-performance'
-    };
   }
 }
 
@@ -408,12 +306,18 @@ class PerformanceMonitor {
  */
 ```typescript
 interface ShaderSystem {
+  // Cache of compiled shader programs
   shaderCache: Map<string, WebGLProgram>;
+  // Cache of uniform locations
   uniformLocations: Map<string, WebGLUniformLocation>;
+  // Vertex Array Objects for attribute configs
   vertexArrayObjects: Map<string, WebGLVertexArrayObject>;
   
+  // Compile shader from source
   compileShader(source: string, type: number): WebGLShader;
+  // Link vertex and fragment shaders
   linkProgram(vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram;
+  // Create and configure VAO
   setupVAO(program: WebGLProgram, attributes: AttributeConfig[]): WebGLVertexArrayObject;
 }
 /**
@@ -1259,15 +1163,19 @@ function App() {
  */
 ```typescript
 interface SAM2Predictor {
+  // Model variant configuration
   modelType: 'hiera_b+' | 'hiera_l' | 'hiera_s' | 'hiera_t';
+  // Inference parameters
   inferenceConfig: {
+    // Maximum points to process per frame
     pointsPerFrame: number;
-    propagationSteps: number;
-    confidenceThreshold: number;
+    // Enable temporal consistency
     useTemporalConsistency: boolean;
   };
   
+  // Generate mask prediction from points
   predictMask(points: SegmentationPoint[]): Promise<MaskPrediction>;
+  // Propagate mask across video frames
   propagateMask(mask: MaskData, frames: number): Promise<PropagationResult>;
 }
 
@@ -1709,32 +1617,24 @@ class InteractionMetrics {
  */
 ```typescript
 interface ModelOptimizer {
-  // Configuration for model quantization and optimization
+  // Quantization parameters
   quantizationConfig: {
-    // Supported precision levels for different layers
-    precision: 'int8' | 'float16' | 'float32';
-    // Methods for determining quantization parameters
-    calibrationMethod: 'minmax' | 'entropy' | 'percentile';
-    // Enable per-layer quantization configuration
-    layerwise: boolean;
-    // Advanced quantization parameters
-    calibrationParams: {
-      // Number of samples for calibration
-      sampleSize: number;
-      // Percentile value for calibration method
-      percentile: number;
-      // Tolerance for accuracy loss
-      accuracyTolerance: number;
-      // Channel-wise quantization settings
-      perChannelQuantization: boolean;
-    };
+    // Bit depth for weights
+    bitDepth: number;
+    // Calibration dataset size
+    calibrationSize: number;
+    // Optimization strategy
+    strategy: 'static' | 'dynamic'
   };
   
+  // Hardware acceleration settings
   accelerationConfig: {
-    useGPU: boolean;
-    useDSP: boolean;
-    useNPU: boolean;
-    batchSize: number;
+    // Target device type
+    device: 'cpu' | 'gpu' | 'npu';
+    // Memory budget in bytes
+    memoryBudget: number;
+    // Threading configuration
+    threadConfig: ThreadConfig;
   };
 }
 /**
